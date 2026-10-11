@@ -10,7 +10,7 @@ SCRIPT=$(realpath "$0")
 FFMPEG_VERSION=9.0.2
 FFMPEG_SHA256=8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e
 X264_COMMIT=b35605ace3ddf7c1a5d67a2eb553f034aef41d55
-X264_SHA256=4f1c35d11c7b09ca1a88affb914e1fc3daee888732786a66e51af4f786962c44
+X264_TAR_SHA256=df62afece4eecef8ddf196f115dfec6e936a21b04ec2117a0f4e412de29b20e5
 mkdir -p "$ROOT"/{archives,sources,build-x264,build-ffmpeg,prefix,logs,artifacts/bin,corresponding-source}
 FFMPEG_ARCHIVE="$ROOT/archives/ffmpeg-$FFMPEG_VERSION.tar.xz"
 X264_ARCHIVE="$ROOT/archives/x264-$X264_COMMIT.tar.gz"
@@ -21,7 +21,10 @@ if [[ ! -f "$X264_ARCHIVE" ]]; then
   git -C "$FETCH_DIR" fetch --quiet --depth 1 https://code.videolan.org/videolan/x264.git "$X264_COMMIT"
   git -C "$FETCH_DIR" archive --format=tar --prefix="x264-$X264_COMMIT/" FETCH_HEAD | gzip -n > "$X264_ARCHIVE"
 fi
-printf '%s  %s\n%s  %s\n' "$FFMPEG_SHA256" "$FFMPEG_ARCHIVE" "$X264_SHA256" "$X264_ARCHIVE" | sha256sum -c -
+printf '%s  %s\n' "$FFMPEG_SHA256" "$FFMPEG_ARCHIVE" | sha256sum -c -
++# Verify exact tar bytes: BSD and GNU gzip may encode identical source differently.
++[[ $(gzip -dc "$X264_ARCHIVE" | sha256sum | cut -d' ' -f1) == "$X264_TAR_SHA256" ]] || { echo 'x264 source tar checksum mismatch' >&2; exit 1; }
++echo 'x264 source tar SHA256: OK' 
 [[ -d "$ROOT/sources/ffmpeg-$FFMPEG_VERSION" ]] || tar -xf "$FFMPEG_ARCHIVE" -C "$ROOT/sources"
 [[ -d "$ROOT/sources/x264-$X264_COMMIT" ]] || tar -xf "$X264_ARCHIVE" -C "$ROOT/sources"
 export PKG_CONFIG_PATH=
