@@ -110,9 +110,10 @@ async function evaluate(expression) {
   assert.equal((await evaluate(`window.electronAPI.playSeries({seriesId:${JSON.stringify(sid)}, vidIndex:1})`)).success, true);
   const played = await evaluate(`(async () => {
     let v;
-    for (let i=0; i<50; i++) { v=document.querySelector('video'); if(v?.src) break; await new Promise(r=>setTimeout(r,100)); }
-    if(!v?.src) throw new Error('Player did not load local episode'); v.muted=true;
-    await v.play(); await new Promise(r => setTimeout(r, 1200));
+    for (let i=0; i<100; i++) { v=document.querySelector('video'); if(v?.readyState>=2) break; await new Promise(r=>setTimeout(r,100)); }
+    if(!v || v.readyState<2) throw new Error('Player did not load local episode'); v.muted=true;
+    if(v.paused) document.querySelector('[aria-label="播放"]').click();
+    await new Promise(r => setTimeout(r, 1200));
     return { time: v.currentTime, width: v.videoWidth, height: v.videoHeight, error: v.error?.message };
   })()`);
   assert(played.time > 0.5 && played.width === 640 && played.height === 360, JSON.stringify(played));
