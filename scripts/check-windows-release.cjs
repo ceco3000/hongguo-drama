@@ -1,4 +1,4 @@
-// Run only on disposable Windows CI: temporary installation/profile and public CC0 flower footage.
+// Run the single-file portable EXE on disposable Windows CI with an isolated profile and CC0 footage.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
@@ -9,7 +9,7 @@ const pkg = require('../package.json');
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, 'dist/windows-verification');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'hongguo-windows-'));
-const installed = path.join(temp, 'installed');
+const packaged = path.join(root, 'dist/win-unpacked');
 const profile = path.join(temp, 'profile');
 fs.mkdirSync(out, { recursive: true });
 fs.mkdirSync(profile);
@@ -40,16 +40,15 @@ async function evaluate(expression) {
 (async () => {
   assert.equal(process.platform, 'win32');
   assert.equal(process.arch, 'x64');
-  const setup = path.join(root, `dist/${pkg.build.productName}-Setup-${pkg.version}.exe`);
-  result.authenticode = execFileSync('powershell.exe', ['-NoProfile', '-Command', '(Get-AuthenticodeSignature -LiteralPath $env:HONGGUO_VERIFY_EXE).Status.ToString()'], { encoding: 'utf8', env: { ...process.env, HONGGUO_VERIFY_EXE: setup } }).trim();
+  const portable = path.join(root, `dist/${pkg.build.productName}-${pkg.version}-便携版.exe`);
+  result.authenticode = execFileSync('powershell.exe', ['-NoProfile', '-Command', '(Get-AuthenticodeSignature -LiteralPath $env:HONGGUO_VERIFY_EXE).Status.ToString()'], { encoding: 'utf8', env: { ...process.env, HONGGUO_VERIFY_EXE: portable } }).trim();
   assert.equal(result.authenticode, 'NotSigned');
-  execFileSync(setup, ['/S', '/D=' + installed], { timeout: 90000 });
-  const exe = path.join(installed, pkg.build.productName + '.exe');
-  const ffmpeg = path.join(installed, 'resources/bin/ffmpeg.exe');
-  const ffprobe = path.join(installed, 'resources/bin/ffprobe.exe');
+  const exe = path.join(packaged, pkg.build.productName + '.exe');
+  const ffmpeg = path.join(packaged, 'resources/bin/ffmpeg.exe');
+  const ffprobe = path.join(packaged, 'resources/bin/ffprobe.exe');
   for (const file of [exe, ffmpeg, ffprobe]) pe64(file);
-  result.checks.push('NSIS silent install; Electron/FFmpeg/FFprobe are PE x64');
-  for (const file of ['LICENSE.txt', 'NOTICE.txt', 'THIRD-PARTY-NOTICES.md', 'LICENSE.electron.txt', 'LICENSES.chromium.html', 'resources/bin/WINDOWS-NOTICE.txt', 'resources/bin/WINDOWS-X264-LICENSE.txt', 'resources/bin/WINDOWS-MINGW-LICENSE.txt', 'resources/bin/WINDOWS-GCC-LICENSE.txt', 'resources/bin/COPYING.GPLv3']) assert(fs.statSync(path.join(installed, file)).size > 20, file);
+  result.checks.push('Portable payload: Electron/FFmpeg/FFprobe are PE x64');
+  for (const file of ['LICENSE.txt', 'NOTICE.txt', 'THIRD-PARTY-NOTICES.md', 'LICENSE.electron.txt', 'LICENSES.chromium.html', 'resources/bin/WINDOWS-NOTICE.txt', 'resources/bin/WINDOWS-X264-LICENSE.txt', 'resources/bin/WINDOWS-MINGW-LICENSE.txt', 'resources/bin/WINDOWS-GCC-LICENSE.txt', 'resources/bin/COPYING.GPLv3']) assert(fs.statSync(path.join(packaged, file)).size > 20, file);
   result.checks.push('Application, Electron, Chromium, FFmpeg and x264 notices present');
   result.ffmpeg = execFileSync(ffmpeg, ['-version'], { encoding: 'utf8', windowsHide: true }).split('\n')[0];
   const mediaDir = path.join(temp, 'media');
@@ -64,12 +63,12 @@ async function evaluate(expression) {
   const probe = JSON.parse(execFileSync(ffprobe, ['-v', 'error', '-show_streams', '-of', 'json', sample], { encoding: 'utf8', windowsHide: true }));
   assert(probe.streams.some(s => s.codec_name === 'h264'));
   assert(probe.streams.some(s => s.codec_name === 'aac'));
-  result.checks.push('Installed FFmpeg encodes H.264/AAC; FFprobe reads output');
+  result.checks.push('Bundled FFmpeg encodes H.264/AAC; FFprobe reads output');
   const sid = 'windows-smoke';
   fs.writeFileSync(path.join(profile, 'data.json'), JSON.stringify({ settings: { root: mediaDir, watch_updates_enabled: false, watch_sequels_enabled: false }, tasks: [{ id: 'fixture', status: 'completed', savePath: sample, hongguoInfo: { series_id: sid, series_title: 'Windows verification', vid: 'fixture', vid_index: 1 } }], series: [{ series_id: sid, series_title: 'Windows verification', episodes: [{ vid: 'fixture', vid_index: 1, title: 'CC0 flower footage' }] }] }));
-  child = spawn(exe, ['--user-data-dir=' + profile, '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=9439', '--autoplay-policy=no-user-gesture-required'], { stdio: 'ignore' });
+  child = spawn(portable, ['--user-data-dir=' + profile, '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=9439', '--autoplay-policy=no-user-gesture-required'], { stdio: 'ignore' });
   let target;
-  for (let i = 0; i < 50; i++) {
+  for (let i = 0; i < 150; i++) {
     try { target = (await (await fetch('http://127.0.0.1:9439/json')).json()).find(t => t.type === 'page' && t.url.startsWith('file:')); } catch {}
     if (target) break;
     await delay(200);
@@ -93,8 +92,11 @@ async function evaluate(expression) {
   assert.equal(settings.root, mediaDir, 'Temporary profile must isolate all user state');
   assert(await evaluate('document.querySelector("#root").children.length > 0'));
   const media = await evaluate('window.electronAPI.getFfmpegStatus()');
-  assert(media.available); assert.equal(media.ffmpeg, ffmpeg); assert.equal(media.ffprobe, ffprobe);
-  result.checks.push('Installed app renders; matching version; isolated profile; bundled media IPC');
+  assert(media.available);
+  const hash = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+  assert.equal(hash(media.ffmpeg), hash(ffmpeg)); assert.equal(hash(media.ffprobe), hash(ffprobe));
+  assert.notEqual(media.ffmpeg, ffmpeg, 'Must run the self-extracted portable EXE, not win-unpacked');
+  result.checks.push('Single-file portable EXE opens; matching version; isolated profile; extracted media matches payload');
   assert.equal((await evaluate('window.electronAPI.setWindowLayout("portrait")')).success, true);
   assert.equal(await evaluate('window.electronAPI.getWindowLayout()'), 'portrait');
   assert.equal(await evaluate('window.electronAPI.setAlwaysOnTop(true)'), true);
@@ -119,7 +121,7 @@ async function evaluate(expression) {
   assert.equal(paused, true);
   result.checks.push('Actual application player plays CC0 flower H.264/AAC through local protocol; pause control works');
   const screenshot = await cdp('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync(path.join(out, 'installed-windows-playback.png'), Buffer.from(screenshot.data, 'base64'));
+  fs.writeFileSync(path.join(out, 'portable-windows-playback.png'), Buffer.from(screenshot.data, 'base64'));
   result.passed = true;
   console.log('Windows release smoke: PASS (' + result.checks.length + ' checks)');
 })().catch(error => { result.passed = false; result.error = error.stack; console.error(error.stack); process.exitCode = 1; })
