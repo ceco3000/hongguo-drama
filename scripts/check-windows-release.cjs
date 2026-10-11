@@ -41,7 +41,7 @@ async function evaluate(expression) {
   assert.equal(process.platform, 'win32');
   assert.equal(process.arch, 'x64');
   const portable = path.join(root, `dist/${pkg.build.productName}-${pkg.version}-便携版.exe`);
-  result.authenticode = execFileSync('powershell.exe', ['-NoProfile', '-Command', '(Get-AuthenticodeSignature -LiteralPath $env:HONGGUO_VERIFY_EXE).Status.ToString()'], { encoding: 'utf8', env: { ...process.env, HONGGUO_VERIFY_EXE: portable } }).trim();
+  result.authenticode = execFileSync('pwsh.exe', ['-NoProfile', '-Command', '(Get-AuthenticodeSignature -LiteralPath $env:HONGGUO_VERIFY_EXE).Status.ToString()'], { encoding: 'utf8', env: { ...process.env, HONGGUO_VERIFY_EXE: portable } }).trim();
   assert.equal(result.authenticode, 'NotSigned');
   const exe = path.join(packaged, pkg.build.productName + '.exe');
   const ffmpeg = path.join(packaged, 'resources/bin/ffmpeg.exe');

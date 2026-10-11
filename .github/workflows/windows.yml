@@ -43,23 +43,41 @@ jobs:
         with:
           name: windows-media
           path: media
+      - uses: actions/cache/restore@v4
+        id: portable-cache
+        with:
+          path: |
+            dist/win-unpacked
+            dist/*.exe
+          key: windows-portable-v1-${{ hashFiles('package*.json', 'main.js', 'preload.js', 'index.html', 'vite.config.js', 'src/**', 'build/**', 'scripts/build-ffmpeg-source-win.sh') }}
       - shell: pwsh
+        if: steps.portable-cache.outputs.cache-hit != 'true'
         run: |
           Copy-Item media/bin/* build/ffmpeg/ -Force
           npm ci --no-audit --no-fund
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           npm run build:portable
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/cache/save@v4
+        if: steps.portable-cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            dist/win-unpacked
+            dist/*.exe
+          key: ${{ steps.portable-cache.outputs.cache-primary-key }}
+      - shell: pwsh
+        run: |
           node scripts/check-windows-release.cjs
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           New-Item -ItemType Directory -Force dist/windows-release | Out-Null
           $version = (Get-Content package.json | ConvertFrom-Json).version
           Copy-Item "dist/红果短剧-$version-便携版.exe" "dist/windows-release/hongguo-downloader-$version-win-x64.exe"
+          Compress-Archive -LiteralPath "dist/windows-release/hongguo-downloader-$version-win-x64.exe" -DestinationPath "dist/windows-release/hongguo-downloader-$version-win-x64.zip"
           Copy-Item media/*corresponding-source.tar.gz dist/windows-release/
           git archive --format=zip --output="dist/windows-release/hongguo-downloader-$version-windows-source.zip" HEAD
           Get-FileHash dist/windows-release/* -Algorithm SHA256 | ForEach-Object { "$($_.Hash.ToLower())  $([IO.Path]::GetFileName($_.Path))" } | Set-Content -Encoding utf8 dist/windows-release/WINDOWS-SHA256SUMS.txt
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - uses: actions/upload-artifact@v4
         with:
           name: windows-release-candidate
