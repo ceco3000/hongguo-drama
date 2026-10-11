@@ -101,6 +101,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 设置
   selectFolder: () => ipcRenderer.invoke('select-folder'),
+  getWindowLayout: () => ipcRenderer.invoke('get-window-layout'),
+  setWindowLayout: (mode) => ipcRenderer.invoke('set-window-layout', mode),
+  getAlwaysOnTop: () => ipcRenderer.invoke('get-always-on-top'),
+  setAlwaysOnTop: (value) => ipcRenderer.invoke('set-always-on-top', value),
+  setEpisodePanelOpen: (value) => ipcRenderer.invoke('set-episode-panel-open', value),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   onStorageError: (cb) => {

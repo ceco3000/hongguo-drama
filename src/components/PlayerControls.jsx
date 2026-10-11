@@ -8,13 +8,62 @@ const formatTime = seconds => {
 };
 const Icon = ({ children }) => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>;
 
-export default function PlayerControls({ videoRef, stageRef, source, available, rate, onRateChange, onError }) {
+export default function PlayerControls({ videoRef, stageRef, source, available, rate, onRateChange, onError, portrait = false, windowFill = false, onWindowFill }) {
   const [media, setMedia] = useState({ paused: true, time: 0, duration: 0, muted: false, volume: 1 });
   const [fullscreen, setFullscreen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [controlsHidden, setControlsHidden] = useState(false);
+  const controlsRef = useRef(null);
   const menuRef = useRef(null);
   const menuButtonRef = useRef(null);
   const speedRef = useRef(null);
+  const expanded = fullscreen || windowFill;
+
+  useEffect(() => {
+    if (!windowFill) return;
+    const escape = event => { if (event.key === 'Escape') onWindowFill(false); };
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, [windowFill, onWindowFill]);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    let timer;
+    let dragging = false;
+    const reveal = () => {
+      clearTimeout(timer);
+      setControlsHidden(false);
+      if (portrait && available && !media.paused && !menuOpen && !dragging) {
+        timer = setTimeout(() => {
+          if (!controlsRef.current?.querySelector(':focus-visible')) setControlsHidden(true);
+        }, 2000);
+      }
+    };
+    const startDrag = event => { if (event.target.closest('input[type="range"]')) { dragging = true; reveal(); } };
+    const stopDrag = () => { if (dragging) { dragging = false; reveal(); } };
+    stage?.addEventListener('pointermove', reveal);
+    stage?.addEventListener('pointerdown', startDrag);
+    stage?.addEventListener('focusin', reveal);
+    stage?.addEventListener('focusout', reveal);
+    window.addEventListener('keydown', reveal, true);
+    window.addEventListener('keyup', reveal, true);
+    window.addEventListener('pointerup', stopDrag);
+    window.addEventListener('pointercancel', stopDrag);
+    window.addEventListener('blur', stopDrag);
+    reveal();
+    return () => {
+      clearTimeout(timer);
+      stage?.removeEventListener('pointermove', reveal);
+      stage?.removeEventListener('pointerdown', startDrag);
+      stage?.removeEventListener('focusin', reveal);
+      stage?.removeEventListener('focusout', reveal);
+      window.removeEventListener('keydown', reveal, true);
+      window.removeEventListener('keyup', reveal, true);
+      window.removeEventListener('pointerup', stopDrag);
+      window.removeEventListener('pointercancel', stopDrag);
+      window.removeEventListener('blur', stopDrag);
+    };
+  }, [portrait, available, media.paused, menuOpen, source, stageRef]);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -69,13 +118,14 @@ export default function PlayerControls({ videoRef, stageRef, source, available, 
   };
   const toggleFullscreen = async () => {
     try {
+      if (portrait) { onWindowFill(!windowFill); return; }
       if (document.fullscreenElement === stageRef.current) await document.exitFullscreen();
       else await stageRef.current.requestFullscreen();
     } catch { onError?.('无法进入或退出全屏，请重试'); }
   };
 
   return (
-    <div className="player-controls" role="group" aria-label="视频播放控制">
+    <div ref={controlsRef} className={`player-controls ${controlsHidden ? 'controls-hidden' : ''}`} role="group" aria-label="视频播放控制">
       <input className="player-controls-seek" type="range" aria-label="播放进度" aria-valuetext={`${formatTime(media.time)} / ${formatTime(media.duration)}`} min="0" max={media.duration || 0} step="0.1" value={Math.min(media.time, media.duration)} disabled={!available || !media.duration} onChange={seek} />
       <div className="player-controls-row">
         <button type="button" data-player-control aria-label={media.paused ? '播放' : '暂停'} title="播放/暂停（空格）" disabled={!available} onClick={togglePlay}>{media.paused ? <Play size={18} /> : <Pause size={18} />}</button>
@@ -86,8 +136,8 @@ export default function PlayerControls({ videoRef, stageRef, source, available, 
           </button>
           <input type="range" aria-label="音量" aria-valuetext={`${Math.round((media.muted ? 0 : media.volume) * 100)}%`} min="0" max="1" step="0.05" value={media.muted ? 0 : media.volume} onChange={changeVolume} />
         </div>
-        <button type="button" data-player-control aria-label={fullscreen ? '退出全屏' : '全屏'} title={fullscreen ? '退出全屏' : '全屏'} onClick={toggleFullscreen}>
-          <Icon><path d={fullscreen ? 'M9 3v6H3m12-6v6h6M9 21v-6H3m12 6v-6h6' : 'M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6'} /></Icon>
+        <button type="button" data-player-control aria-label={expanded ? '退出全屏' : '全屏'} title={expanded ? '退出全屏' : portrait ? '填满当前窗口' : '全屏'} onClick={toggleFullscreen}>
+          <Icon><path d={expanded ? 'M9 3v6H3m12-6v6h6M9 21v-6H3m12 6v-6h6' : 'M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6'} /></Icon>
         </button>
         <button type="button" data-player-control className="player-controls-rate" aria-label="增加播放速度" title={`播放速度 ${rate}×，点击增加 0.25 倍，4 倍后回到 1 倍`} onClick={() => onRateChange(rate >= 4 ? 1 : Math.min(4, rate + 0.25))}>{rate}×</button>
         <div className="player-controls-options" data-player-menu ref={menuRef}>

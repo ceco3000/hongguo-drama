@@ -8,7 +8,7 @@
  *   4. 下载管理：进度推送、暂停/取消、重试、删除、打开所在文件夹
  *   5. 设置：下载目录、命名规则、并发数（JSON 文件持久化）
  */
-const { app, BrowserWindow, ipcMain, dialog, shell, session, protocol, Menu, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, session, protocol, Menu, Notification, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const fsp = require('fs/promises');
@@ -21,6 +21,8 @@ const hongguo = require('./src/native/hongguo');
 const { decryptInWorker } = require('./src/native/decrypt-worker.cjs');
 const store = require('./src/store');
 const watchHistory = require('./src/native/watch-history');
+const { fitWindowBounds } = require('./src/native/window-layout');
+const { createEpisodePanelController } = require('./src/native/episode-panel');
 const APP_VERSION = app.getVersion() || '1.0.0';
 
 const APP_TITLE = '红果短剧';
@@ -2937,8 +2939,47 @@ ipcMain.handle('open-external-url', async (event, url) => {
   }
 });
 
+let windowLayout = 'landscape';
+let landscapeBounds = null;
+let layoutChanging = false;
+const episodePanel = createEpisodePanelController({ ipcMain, screen, getMainWindow: () => mainWindow, getLayout: () => windowLayout });
+ipcMain.handle('get-window-layout', () => windowLayout);
+ipcMain.handle('set-window-layout', async (event, mode) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || !['portrait', 'landscape'].includes(mode)) {
+    return { success: false, error: '无法切换窗口布局' };
+  }
+  if (layoutChanging) return { success: false, error: '窗口正在切换，请稍后重试' };
+  if (mode === windowLayout) return { success: true, mode };
+  layoutChanging = true;
+  try {
+    const win = mainWindow;
+    if (mode === 'portrait') landscapeBounds = win.getNormalBounds();
+    if (win.isFullScreen()) {
+      await new Promise((resolve, reject) => {
+        const done = () => { clearTimeout(timer); resolve(); };
+        const timer = setTimeout(() => { win.removeListener('leave-full-screen', done); reject(new Error('请先退出全屏后再切换')); }, 3000);
+        win.once('leave-full-screen', done);
+        win.setFullScreen(false);
+      });
+    }
+    if (win.isMaximized()) win.unmaximize();
+    if (mode === 'landscape') episodePanel.close();
+    const current = win.getBounds();
+    const area = screen.getDisplayMatching(current).workArea;
+    const bounds = fitWindowBounds(mode, current, area, landscapeBounds);
+    win.setMinimumSize(Math.min(mode === 'portrait' ? 420 : 900, bounds.width), Math.min(560, bounds.height));
+    win.setBounds(bounds);
+    windowLayout = mode;
+    return { success: true, mode };
+  } catch (error) {
+    return { success: false, error: error.message };
+  } finally { layoutChanging = false; }
+});
+
 // ===== 窗口创建 =====
 function createWindow() {
+  windowLayout = 'landscape';
+  landscapeBounds = null;
   mainWindow = new BrowserWindow({
     width: 1100,
     height: 750,
@@ -2960,6 +3001,7 @@ function createWindow() {
   });
 
   mainWindow.setMenuBarVisibility(false);
+  episodePanel.attach(mainWindow);
   mainWindow.webContents.once('did-finish-load', () => {
     if (storageError) sendToRenderer('storage-error', storageError);
   });

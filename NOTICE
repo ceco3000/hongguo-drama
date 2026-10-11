@@ -95,3 +95,8 @@ The independently implemented Hema adapter reads publicly available search and
 episode metadata from www.kuaikaw.cn, preserves charged/unknown episodes as locked,
 and does not request unlock or encrypted-media endpoints. No third-party adapter
 code was copied. Content rights remain with their respective owners.
+
+九、1.1.9 三平台同步发行（2026-10-11）
+----------------------------------------
+新增 Windows x64 固定源码媒体构建、NSIS 安装与隔离运行验收工作流。
+Mac arm64、Mac x64、Windows x64 共用版本号；平台验证与签名状态分别记录。

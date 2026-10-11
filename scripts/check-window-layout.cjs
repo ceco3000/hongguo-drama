@@ -1,0 +1,17 @@
+const assert = require('node:assert/strict');
+const { fitWindowBounds } = require('../src/native/window-layout');
+const screen = { x: 0, y: 25, width: 1440, height: 850 };
+const current = { x: 100, y: 100, width: 1100, height: 750 };
+const portrait = fitWindowBounds('portrait', current, screen);
+assert(portrait.height > portrait.width);
+assert.equal(portrait.width, 620);
+assert(portrait.y >= screen.y && portrait.y + portrait.height <= 875);
+assert.deepEqual(fitWindowBounds('landscape', current, screen, current), current);
+const secondary = { x: -1024, y: 0, width: 1024, height: 700 };
+const moved = fitWindowBounds('landscape', portrait, secondary, current);
+assert(moved.x >= -1024 && moved.x + moved.width <= 0);
+assert(moved.height <= 700);
+const small = fitWindowBounds('portrait', current, { x: 0, y: 0, width: 800, height: 600 });
+assert(small.width < small.height && small.height <= 600);
+assert.throws(() => fitWindowBounds('invalid', current, screen), /Invalid/);
+console.log('PASS window layout: portrait, round trip, moved display, small display, invalid mode');

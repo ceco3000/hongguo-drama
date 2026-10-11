@@ -12,7 +12,10 @@ import { Play, Film, Download, Check, RefreshCw, Layers, X, Trash2, ChevronDown,
  *  - 「边下边看」：下一集若还在下载，显示等待态并轮询，下完自动接上
  *  - 断点续播：按 series_id 记住看到第几集、第几秒
  */
-function Player({ target, onNavigate, active = true }) {
+function Player({ target, onNavigate, active = true, portrait = false, actionsHidden = false, episodesOpen = false, setEpisodesOpen }) {
+  const [portraitActionsOpen, setPortraitActionsOpen] = useState(false);
+  const [windowFill, setWindowFill] = useState(false);
+  useEffect(() => { if (!portrait || !active) setWindowFill(false); }, [portrait, active]);
   const [seriesList, setSeriesList] = useState([]);
   const [activeSeriesId, setActiveSeriesId] = useState('');
   const [detail, setDetail] = useState(null); // { series_title, episodes: [...], total, completedCount }
@@ -791,6 +794,22 @@ function Player({ target, onNavigate, active = true }) {
 
   useDialogKeyboard(active && !!(confirmAsk || mergeAsk), () => { setConfirmAsk(null); setMergeAsk(false); }, '.player-confirm');
 
+  useEffect(() => {
+    if (actionsHidden || !active || !portrait) {
+      setPortraitActionsOpen(false);
+      setEpisodesOpen(false);
+    }
+    if (actionsHidden || !active) setPickerOpen(false);
+  }, [actionsHidden, active, portrait]);
+
+  useEffect(() => {
+    window.electronAPI.setEpisodePanelOpen?.(active && portrait && episodesOpen && !loading).catch(() => {
+      setEpisodesOpen(false);
+      showToast('选集无法展开，请重试');
+    });
+  }, [active, portrait, episodesOpen, loading, showToast]);
+  useEffect(() => () => { window.electronAPI.setEpisodePanelOpen?.(false).catch(() => {}); }, []);
+
   // ===== 渲染 =====
   if (loading) {
     return <div className="player-container"><div className="player-empty">加载中…</div></div>;
@@ -829,13 +848,13 @@ function Player({ target, onNavigate, active = true }) {
   }
 
   return (
-    <div className="player-container">
-      <div className="player-header">
+    <div className={`player-container ${portraitActionsOpen ? 'portrait-actions-open' : ''} ${episodesOpen ? '' : 'episodes-collapsed'}`}>
+      <div className="player-header" hidden={actionsHidden}>
         <div className="player-title">
           <Play size={22} />
           <h2>我的剧库</h2>
         </div>
-        <div className="player-header-right">
+        <div className="player-header-right" id="player-management">
           <span className="player-stat">已下载 {playableCount} / {episodes.length || 0} 集</span>
 
           <button
@@ -882,13 +901,16 @@ function Player({ target, onNavigate, active = true }) {
       </div>
 
       {/* 剧集选择：当前剧 + 下拉管理面板（替代原来会越堆越长的横条） */}
-      <div className="player-series-row">
+      <div className="player-series-row" hidden={actionsHidden}>
         <div className="player-series-current">
           <span className="player-series-label">正在播放</span>
           <span className="player-series-name" title={detail ? detail.series_title : ''}>
             {detail ? detail.series_title : '—'}
           </span>
         </div>
+        <div className="player-series-actions">
+        <button className="btn btn-outline portrait-management-toggle" aria-expanded={portraitActionsOpen}
+          aria-controls="player-management" onClick={() => setPortraitActionsOpen((open) => !open)}>管理</button>
         <button
           aria-expanded={pickerOpen}
           className={`btn btn-outline series-picker-btn ${pickerOpen ? 'open' : ''}`}
@@ -898,9 +920,10 @@ function Player({ target, onNavigate, active = true }) {
           <span className="series-count">{seriesList.length}</span>
           <ChevronDown size={15} />
         </button>
+        </div>
       </div>
 
-      {pickerOpen && (
+      {pickerOpen && !actionsHidden && (
         <div className="series-picker">
           <div className="series-picker-head">
             <input
@@ -1058,8 +1081,9 @@ function Player({ target, onNavigate, active = true }) {
         </div>
       )}
 
+      <div className="player-viewing-layout">
       {/* 播放区 */}
-      <div className="player-stage" ref={stageRef}>
+      <div className={`player-stage ${windowFill ? 'player-window-fill' : ''}`} ref={stageRef}>
           <video
             ref={videoRef}
             src={videoSrc || undefined}
@@ -1108,7 +1132,7 @@ function Player({ target, onNavigate, active = true }) {
               if (failedDecode && autoCompat && !compatUrl && autoCompatAttemptRef.current !== mediaVersion.current) startCompatPlay(currentIndex);
             }}
           />
-        <PlayerControls videoRef={videoRef} stageRef={stageRef} source={videoSrc} available={canPlay}
+        <PlayerControls portrait={portrait} windowFill={windowFill} onWindowFill={setWindowFill} videoRef={videoRef} stageRef={stageRef} source={videoSrc} available={canPlay}
           rate={playbackRate} onRateChange={changePlaybackRate} onError={showToast} />
         {!canPlay && (
           <div className="player-placeholder" style={{ position: 'absolute', inset: 0 }}>
@@ -1224,6 +1248,8 @@ function Player({ target, onNavigate, active = true }) {
         )}
       </div>
 
+      <section className="player-episode-panel" id="player-episode-panel" aria-label="选集">
+      <h3 className="portrait-episode-heading">选集</h3>
       {/* 播放中的集信息 */}
       {current && (
         <div className="player-now">
@@ -1280,6 +1306,9 @@ function Player({ target, onNavigate, active = true }) {
         <br />
         <b>未锁定的灰色分集点一下即可在线播放</b>（不保存到下载目录）；双击才加入下载队列。
         连播时遇到未下载的集会自动转在线播放。
+      </div>
+
+      </section>
       </div>
 
       {toast && <div className="dm-toast dm-toast-success" onClick={() => setToast(null)}>{toast}</div>}

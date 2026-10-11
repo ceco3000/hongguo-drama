@@ -1,3 +1,5 @@
+Apple Silicon arm64
+===================
 ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers
 built with Apple clang version 21.0.0 (clang-2100.1.1.101)
 configuration: --prefix=../prefix --arch=aarch64 --target-os=darwin --cc=/usr/bin/clang --disable-autodetect --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-network --disable-indevs --disable-outdevs --enable-indev=lavfi --enable-gpl --enable-version3 --enable-libx264 --enable-videotoolbox --enable-audiotoolbox --enable-pthreads --enable-zlib --enable-bzlib --enable-iconv --pkg-config=/opt/homebrew/bin/pkg-config --pkg-config-flags=--static --extra-cflags='-mmacosx-version-min=13.0 -I../prefix/include' --extra-ldflags='-mmacosx-version-min=13.0 -L../prefix/lib' --extra-libs=-liconv
@@ -15,3 +17,24 @@ x264 source commit: b35605ace3ddf7c1a5d67a2eb553f034aef41d55
 x264 is the only non-system external static dependency.
 Deployment target: macOS 13.0, arm64.
 System dynamic dependencies verified with otool -L; see release verification.
+
+Intel x64
+=========
+ffmpeg version 9.0.2 Copyright (c) 2000-2026 the FFmpeg developers
+built with Apple clang version 21.0.0 (clang-2100.1.1.101)
+configuration: --prefix=../prefix --arch=x86_64 --target-os=darwin --enable-cross-compile --disable-x86asm --cc=/usr/bin/clang --disable-autodetect --disable-shared --enable-static --disable-doc --disable-debug --disable-ffplay --disable-network --disable-indevs --disable-outdevs --enable-indev=lavfi --enable-gpl --enable-version3 --enable-libx264 --enable-videotoolbox --enable-audiotoolbox --enable-pthreads --enable-zlib --enable-bzlib --enable-iconv --pkg-config=/opt/homebrew/bin/pkg-config --pkg-config-flags=--static --extra-cflags='-arch x86_64 -mmacosx-version-min=13.0 -I../prefix/include' --extra-ldflags='-arch x86_64 -mmacosx-version-min=13.0 -L../prefix/lib' --extra-libs=-liconv
+libavutil      61.  1.102 / 61.  1.102
+libavcodec     63.  1.102 / 63.  1.102
+libavformat    63.  1.102 / 63.  1.102
+libavdevice    63.  1.102 / 63.  1.102
+libavfilter    12.  1.102 / 12.  1.102
+libswscale     10.  1.102 / 10.  1.102
+libswresample   7.  1.102 /  7.  1.102
+
+Exiting with exit code 0
+
+x264 source commit: b35605ace3ddf7c1a5d67a2eb553f034aef41d55
+x264 is the only non-system external static dependency.
+Deployment target: macOS 13.0, x86_64.
+External x86 assembly optimizations disabled; software encoding may be slower.
+Rosetta encode/probe/decode verification passed; physical Intel hardware not tested.

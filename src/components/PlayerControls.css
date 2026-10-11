@@ -7,6 +7,8 @@
   background: linear-gradient(transparent, rgba(0, 0, 0, .84));
 }
 .player-controls-row { display: flex; align-items: center; gap: 8px; }
+.player-controls { transition: opacity .18s ease; }
+.player-controls.controls-hidden { opacity: 0; pointer-events: none; }
 .player-controls button { display: inline-flex; align-items: center; justify-content: center; gap: 3px; min-width: 36px; min-height: 36px; padding: 5px; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
 .player-controls button:hover { background: rgba(255, 255, 255, .16); }
 .player-controls button:disabled { opacity: .45; cursor: default; }

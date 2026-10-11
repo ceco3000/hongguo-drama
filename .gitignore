@@ -65,6 +65,7 @@ graphify-out/
 # Local signed release output
 dist-signed/
 
+# Isolated release records
 .planning/
-*.bak
-*.backup
+WINDOWS_HANDOFF.md
+media/

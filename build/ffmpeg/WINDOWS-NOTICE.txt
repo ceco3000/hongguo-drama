@@ -1,0 +1,10 @@
+Windows FFmpeg / FFprobe 1.1.9 distribution
+FFmpeg 9.0.2 (GPLv3-or-later), x264 b35605ace3ddf7c1a5d67a2eb553f034aef41d55 (GPLv2-or-later).
+Built from unmodified, SHA256-pinned upstream source using scripts/build-ffmpeg-source-win.sh.
+Only x264 is linked as an external codec library. Windows system DLLs are checked during the build.
+The release includes ffmpeg-9.0.2-x264-b35605a-win-x64-corresponding-source.tar.gz with both full source archives, the exact build script, configuration logs, toolchain versions and binary hashes.
+No Gyan essentials binaries or its additional codec dependencies are included in this release.
+Software H.264 encoding uses libx264. Hardware encoders are not bundled in this minimal build.
+Source: https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz
+Source: https://code.videolan.org/videolan/x264.git
+License texts: COPYING.GPLv3, COPYING.GPLv2, LICENSE.md, WINDOWS-X264-LICENSE.txt.

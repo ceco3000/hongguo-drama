@@ -605,3 +605,59 @@
 
 .ep-chip:disabled { flex-direction: column; gap: 2px; cursor: not-allowed; background: var(--bg-inset); color: var(--text-secondary); }
 .ep-lock-label { display: block; font-size: 10px; line-height: 1.2; font-weight: 400; }
+
+.player-episode-panel { min-width: 0; }
+.portrait-episode-heading { display: none; }
+.layout-portrait .player-header { gap: 10px; margin-bottom: 14px; }
+.layout-portrait .player-title h2 { font-size: 23px; }
+.layout-portrait .player-series-row { padding-bottom: 12px; }
+.layout-portrait .player-series-name { font-size: 16px; }
+.layout-portrait .player-viewing-layout { display: grid; grid-template-columns: minmax(0, 1fr) 128px; gap: 14px; align-items: start; }
+.layout-portrait .player-stage:not(:fullscreen) { width: 100%; height: 100%; aspect-ratio: auto; max-height: none; margin: 0; min-height: 0; }
+.layout-portrait .player-video { object-fit: contain; }
+.layout-portrait .player-episode-panel { height: 100%; min-height: 0; max-height: none; overflow-y: auto; padding: 0 3px 6px; }
+.layout-portrait .portrait-episode-heading { display: block; font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.layout-portrait .player-now { padding: 0 0 12px; gap: 6px; }
+.layout-portrait .player-now-title { font-size: 12px; }
+.layout-portrait .player-now-sub { flex-basis: 100%; }
+.layout-portrait .player-episodes { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: none; gap: 6px; }
+.layout-portrait .player-tips { font-size: 10px; margin-block: 10px; }
+.layout-portrait .player-stage:not(:fullscreen) .player-controls { padding: 20px 8px 8px; }
+.layout-portrait .player-stage:not(:fullscreen) .player-controls-row { flex-wrap: wrap; gap: 3px; }
+.layout-portrait .player-stage:not(:fullscreen) .player-controls-volume input { width: 42px; }
+.layout-portrait .player-stage:not(:fullscreen) .player-controls-time { flex: 1; }
+.layout-portrait .player-stage:not(:fullscreen) .player-controls-menu { position: fixed; bottom: 24px; right: 16px; z-index: 20; }
+@media (max-width: 480px) {
+  .layout-portrait .player-viewing-layout { grid-template-columns: minmax(0, 1fr) 102px; gap: 8px; }
+}
+
+.player-series-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.portrait-management-toggle, .portrait-episodes-toggle { display: none; }
+.layout-portrait .player-container { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+.layout-portrait .player-header { position: relative; margin: 0; }
+.layout-portrait .player-title { display: none; }
+.layout-portrait .player-header-right { display: none; position: absolute; top: 42px; right: 0; left: 0; z-index: 8; background: var(--bg-card); padding: 16px; border: 1px solid var(--border); border-radius: 9px; }
+.layout-portrait .portrait-actions-open .player-header-right { display: flex; }
+.layout-portrait .portrait-management-toggle, .layout-portrait .portrait-episodes-toggle { display: inline-flex; }
+.layout-portrait .player-series-row { flex-shrink: 0; min-height: 42px; padding: 0 0 8px; gap: 8px; }
+.layout-portrait .player-series-label { display: none; }
+.layout-portrait .series-count { display: none; }
+.layout-portrait .series-picker { flex-shrink: 0; max-height: 45%; overflow: auto; }
+.layout-portrait .player-viewing-layout { flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr) 108px; gap: 10px; }
+.layout-portrait .player-now { padding-bottom: 8px; }
+.layout-portrait .player-now-status { padding: 2px 5px; font-size: 10px; }
+.layout-portrait .episodes-collapsed .player-viewing-layout { grid-template-columns: minmax(0, 1fr); }
+.layout-portrait .episodes-collapsed .player-episode-panel { display: none; }
+@media (max-width: 480px) {
+  .layout-portrait .player-viewing-layout { grid-template-columns: minmax(0, 1fr) 90px; gap: 8px; }
+  .layout-portrait .player-series-actions { gap: 4px; }
+  .layout-portrait .player-series-actions .btn { padding-inline: 7px; font-size: 11px; }
+}
+
+/* Expanding the native window reserves the right column without shrinking the video. */
+.layout-portrait .player-viewing-layout { grid-template-columns: minmax(0, 1fr) 190px; gap: 10px; }
+.layout-portrait .player-episodes { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.layout-portrait .player-episode-panel { display: block; }
+.layout-portrait .player-episode-panel .player-tips { display: none; }
+.layout-portrait .player-now-sub, .layout-portrait .player-now-status { display: none; }
+.layout-portrait .player-stage.player-window-fill { position: fixed; inset: 48px 0 0; width: 100%; height: calc(100% - 48px); z-index: 15; border-radius: 0; }

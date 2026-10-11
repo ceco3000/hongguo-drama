@@ -23,29 +23,13 @@ Electron 打包产物中已包含 Chromium 与 Node.js 的许可声明：
 
 ## 内置可执行程序
 
-### Windows FFmpeg（GPLv3）
+### Windows FFmpeg / FFprobe（GPLv3-or-later）
 
-| 项 | 说明 |
-|---|---|
-| 文件 | `resources/bin/ffmpeg.exe`、`resources/bin/ffprobe.exe` |
-| 版本 | FFmpeg 7.1-essentials_build |
-| 来源 | https://www.gyan.dev/ffmpeg/builds/ |
-| 构建参数 | 含 `--enable-gpl --enable-version3 --enable-libx264 --enable-libx265` |
-| **许可证** | **GNU General Public License v3.0** |
-| 源码 | https://ffmpeg.org/download.html · https://github.com/FFmpeg/FFmpeg |
-
-用途：为「一键合并」提供分片拼接，为「兼容模式」提供格式转码
-（解决部分电脑无法硬件解码 HEVC 导致的「黑屏有声」）。
-
-随软件分发的许可证全文位于 `resources/bin/`：
-
-- `COPYING.GPLv3` —— GPLv3 全文（本构建适用的主许可证）
-- `COPYING.GPLv2` —— GPLv2 全文
-- `COPYING.LGPLv2.1` —— LGPLv2.1 全文
-- `LICENSE.md` —— FFmpeg 官方许可证说明
-- `FFMPEG-NOTICE.txt` —— 本项目的补充说明与源码获取方式
-
-FFmpeg 是独立的第三方程序，本软件仅通过命令行调用其公开接口，未修改其源码。
+Windows x64 内置从固定源码编译的 FFmpeg 9.0.2 与 x264 b35605ace3ddf7c1a5d67a2eb553f034aef41d55，位于 `resources/bin/`。
+x264 为唯一外部编解码静态库（GPLv2-or-later）；整体构建为 GPLv3-or-later。构建验证 x64 架构与系统 DLL 依赖。
+完整 FFmpeg/x264 对应源码、准确构建脚本、配置日志、工具链版本和二进制哈希随 Release 的 Windows 对应源码包提供。
+许可全文与来源说明见 `COPYING.GPLv3`、`COPYING.GPLv2`、`LICENSE.md`、`WINDOWS-X264-LICENSE.txt` 和 `WINDOWS-NOTICE.txt`。
+该精简构建提供软件 H.264 编码，不包含旧版 Gyan essentials 包及其额外库。
 
 ---
 

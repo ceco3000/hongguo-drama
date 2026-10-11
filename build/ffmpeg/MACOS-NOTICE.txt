@@ -1,5 +1,5 @@
-FFmpeg / FFprobe for Apple Silicon macOS
-=======================================
+FFmpeg / FFprobe for Apple Silicon and Intel macOS
+=================================================
 
 This application uses separately invoked, source-built FFmpeg 9.0.2 and FFprobe
 9.0.2 executables. Copyright (c) 2000-2026 the FFmpeg developers and respective
@@ -19,7 +19,11 @@ Exact source inputs:
   Deterministic git archive tar + gzip -n SHA256:
   4f1c35d11c7b09ca1a88affb914e1fc3daee888732786a66e51af4f786962c44
 
-Rebuild instructions: scripts/build-ffmpeg-source-mac.sh BUILD_DIRECTORY [JOBS].
+Rebuild Apple Silicon: scripts/build-ffmpeg-source-mac.sh BUILD_DIRECTORY [JOBS].
+Rebuild Intel: scripts/build-ffmpeg-source-mac-x64.sh BUILD_DIRECTORY [JOBS].
+The Intel build disables external x86 assembly optimizations so no NASM tool
+is required. VideoToolbox and libx264 remain available; software encoding may
+be slower. Apple Silicon retains its existing assembly-optimized build.
 The corresponding-source archive accompanies the application's binary release:
 original source archives, exact build script, source manifest and license texts.
 The script verifies source hashes before compiling. It needs existing Apple
@@ -39,7 +43,10 @@ FFmpeg retains its Independent JPEG Group (IJG) attribution and unmodified code.
 
 Executable hashes below are for the standalone build before application-package
 Developer ID signing, which changes Mach-O signature data and file hashes:
-  ffmpeg: 5778f11dcf417fbefc1912026159a31db157953078abd5d6fec5ba29dd91eb06
-  ffprobe: 0b13c76cad68528c12acd81e6e7672f929a0311e06847111a3079c8ac4046c22
+  arm64 ffmpeg: 5778f11dcf417fbefc1912026159a31db157953078abd5d6fec5ba29dd91eb06
+  arm64 ffprobe: 0b13c76cad68528c12acd81e6e7672f929a0311e06847111a3079c8ac4046c22
+
+  x64 ffmpeg: 8cc5e0049793a3dbd72b9212105755f48148ee0f6db7592220866ff8213167b0
+  x64 ffprobe: ba2ed87fc3de54ee04a57d06aea5f78cdfdc714db2182dca3f6aecddb49f36c3
 
 The Windows FFmpeg build retains its own FFMPEG-NOTICE.txt.
