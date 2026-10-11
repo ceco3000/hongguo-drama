@@ -22,9 +22,9 @@ if [[ ! -f "$X264_ARCHIVE" ]]; then
   git -C "$FETCH_DIR" archive --format=tar --prefix="x264-$X264_COMMIT/" FETCH_HEAD | gzip -n > "$X264_ARCHIVE"
 fi
 printf '%s  %s\n' "$FFMPEG_SHA256" "$FFMPEG_ARCHIVE" | sha256sum -c -
-+# Verify exact tar bytes: BSD and GNU gzip may encode identical source differently.
-+[[ $(gzip -dc "$X264_ARCHIVE" | sha256sum | cut -d' ' -f1) == "$X264_TAR_SHA256" ]] || { echo 'x264 source tar checksum mismatch' >&2; exit 1; }
-+echo 'x264 source tar SHA256: OK' 
+# Verify exact tar bytes: BSD and GNU gzip may encode identical source differently.
+[[ $(gzip -dc "$X264_ARCHIVE" | sha256sum | cut -d' ' -f1) == "$X264_TAR_SHA256" ]] || { echo 'x264 source tar checksum mismatch' >&2; exit 1; }
+echo 'x264 source tar SHA256: OK'
 [[ -d "$ROOT/sources/ffmpeg-$FFMPEG_VERSION" ]] || tar -xf "$FFMPEG_ARCHIVE" -C "$ROOT/sources"
 [[ -d "$ROOT/sources/x264-$X264_COMMIT" ]] || tar -xf "$X264_ARCHIVE" -C "$ROOT/sources"
 export PKG_CONFIG_PATH=
