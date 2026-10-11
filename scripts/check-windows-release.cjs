@@ -41,6 +41,8 @@ async function evaluate(expression) {
   assert.equal(process.platform, 'win32');
   assert.equal(process.arch, 'x64');
   const setup = path.join(root, `dist/${pkg.build.productName}-Setup-${pkg.version}.exe`);
+  result.authenticode = execFileSync('powershell.exe', ['-NoProfile', '-Command', '(Get-AuthenticodeSignature -LiteralPath $env:HONGGUO_VERIFY_EXE).Status.ToString()'], { encoding: 'utf8', env: { ...process.env, HONGGUO_VERIFY_EXE: setup } }).trim();
+  assert.equal(result.authenticode, 'NotSigned');
   execFileSync(setup, ['/S', '/D=' + installed], { timeout: 90000 });
   const exe = path.join(installed, pkg.build.productName + '.exe');
   const ffmpeg = path.join(installed, 'resources/bin/ffmpeg.exe');
@@ -81,6 +83,10 @@ async function evaluate(expression) {
     if (call) message.error ? call.reject(new Error(JSON.stringify(message.error))) : call.resolve(message.result);
   });
   await new Promise((resolve, reject) => { socket.addEventListener('open', resolve, { once: true }); socket.addEventListener('error', reject, { once: true }); });
+  for (let i = 0; i < 50; i++) {
+    if (await evaluate('Boolean(window.electronAPI && document.querySelector("#root")?.children.length)')) break;
+    await delay(100);
+  }
   const info = await evaluate('window.electronAPI.getAppInfo()');
   assert.equal(info.version, pkg.version); assert.equal(info.platform, 'win32');
   const settings = await evaluate('window.electronAPI.getSettings()');
@@ -88,7 +94,7 @@ async function evaluate(expression) {
   assert(await evaluate('document.querySelector("#root").children.length > 0'));
   const media = await evaluate('window.electronAPI.getFfmpegStatus()');
   assert(media.available); assert.equal(media.ffmpeg, ffmpeg); assert.equal(media.ffprobe, ffprobe);
-  result.checks.push('Installed app renders; version 1.1.9; isolated profile; bundled media IPC');
+  result.checks.push('Installed app renders; matching version; isolated profile; bundled media IPC');
   assert.equal((await evaluate('window.electronAPI.setWindowLayout("portrait")')).success, true);
   assert.equal(await evaluate('window.electronAPI.getWindowLayout()'), 'portrait');
   assert.equal(await evaluate('window.electronAPI.setAlwaysOnTop(true)'), true);
