@@ -65,11 +65,14 @@ done
 cp "$ROOT/sources/ffmpeg-$FFMPEG_VERSION/"COPYING* "$ROOT/artifacts/bin/"
 cp "$ROOT/sources/ffmpeg-$FFMPEG_VERSION/LICENSE.md" "$ROOT/artifacts/bin/"
 cp "$ROOT/sources/x264-$X264_COMMIT/COPYING" "$ROOT/artifacts/bin/WINDOWS-X264-LICENSE.txt"
+cp /usr/share/doc/mingw-w64-common/copyright "$ROOT/artifacts/bin/WINDOWS-MINGW-LICENSE.txt"
+cp /usr/share/doc/gcc-mingw-w64-x86-64/copyright "$ROOT/artifacts/bin/WINDOWS-GCC-LICENSE.txt"
 (cd "$ROOT/artifacts/bin" && sha256sum ffmpeg.exe ffprobe.exe) > "$ROOT/artifacts/bin/WINDOWS-SHA256SUMS.txt"
 cp "$FFMPEG_ARCHIVE" "$X264_ARCHIVE" "$SCRIPT" "$ROOT/corresponding-source/"
 cp "$ROOT/build-ffmpeg/ffbuild/config.log" "$ROOT/corresponding-source/ffmpeg-config.log"
 cp "$ROOT/build-x264/config.log" "$ROOT/corresponding-source/x264-config.log"
 { x86_64-w64-mingw32-gcc --version; dpkg-query -W gcc-mingw-w64-x86-64 mingw-w64-common mingw-w64-x86-64-dev; } > "$ROOT/corresponding-source/TOOLCHAIN.txt"
 cp "$ROOT/artifacts/bin/WINDOWS-SHA256SUMS.txt" "$ROOT/corresponding-source/"
+cp "$ROOT/artifacts/bin/WINDOWS-"*-LICENSE.txt "$ROOT/corresponding-source/"
 tar -czf "$ROOT/artifacts/ffmpeg-9.0.2-x264-b35605a-win-x64-corresponding-source.tar.gz" -C "$ROOT" corresponding-source
 echo 'Built Windows x64 FFmpeg, FFprobe and complete corresponding source.'

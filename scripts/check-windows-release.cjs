@@ -1,9 +1,10 @@
-// Run only on disposable Windows CI: installs in a temporary folder and uses synthetic media.
+// Run only on disposable Windows CI: temporary installation/profile and public CC0 flower footage.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawn } = require('node:child_process');
+const { createHash } = require('node:crypto');
 const pkg = require('../package.json');
 const root = path.resolve(__dirname, '..');
 const out = path.join(root, 'dist/windows-verification');
@@ -46,19 +47,24 @@ async function evaluate(expression) {
   const ffprobe = path.join(installed, 'resources/bin/ffprobe.exe');
   for (const file of [exe, ffmpeg, ffprobe]) pe64(file);
   result.checks.push('NSIS silent install; Electron/FFmpeg/FFprobe are PE x64');
-  for (const file of ['LICENSE.txt', 'NOTICE.txt', 'THIRD-PARTY-NOTICES.md', 'LICENSE.electron.txt', 'LICENSES.chromium.html', 'resources/bin/WINDOWS-NOTICE.txt', 'resources/bin/WINDOWS-X264-LICENSE.txt', 'resources/bin/COPYING.GPLv3']) assert(fs.statSync(path.join(installed, file)).size > 20, file);
+  for (const file of ['LICENSE.txt', 'NOTICE.txt', 'THIRD-PARTY-NOTICES.md', 'LICENSE.electron.txt', 'LICENSES.chromium.html', 'resources/bin/WINDOWS-NOTICE.txt', 'resources/bin/WINDOWS-X264-LICENSE.txt', 'resources/bin/WINDOWS-MINGW-LICENSE.txt', 'resources/bin/WINDOWS-GCC-LICENSE.txt', 'resources/bin/COPYING.GPLv3']) assert(fs.statSync(path.join(installed, file)).size > 20, file);
   result.checks.push('Application, Electron, Chromium, FFmpeg and x264 notices present');
   result.ffmpeg = execFileSync(ffmpeg, ['-version'], { encoding: 'utf8', windowsHide: true }).split('\n')[0];
   const mediaDir = path.join(temp, 'media');
   fs.mkdirSync(mediaDir);
   const sample = path.join(mediaDir, 'windows-sample.mp4');
-  execFileSync(ffmpeg, ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=24', '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000', '-t', '4', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', sample], { timeout: 30000, windowsHide: true });
+  const response = await fetch('https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4');
+  assert(response.ok, 'CC0 fixture download failed');
+  const flower = Buffer.from(await response.arrayBuffer());
+  assert.equal(createHash('sha256').update(flower).digest('hex'), '0cd83d944a6ca7822b4a8306cecc60a36e859b041f6702c6a1ad9ead78924451');
+  const original = path.join(mediaDir, 'flower-original.mp4'); fs.writeFileSync(original, flower);
+  execFileSync(ffmpeg, ['-y', '-v', 'error', '-stream_loop', '2', '-i', original, '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000', '-map', '0:v:0', '-map', '1:a:0', '-t', '15', '-vf', 'scale=640:360', '-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '20', '-pix_fmt', 'yuv420p', '-c:a', 'aac', sample], { timeout: 30000, windowsHide: true });
   const probe = JSON.parse(execFileSync(ffprobe, ['-v', 'error', '-show_streams', '-of', 'json', sample], { encoding: 'utf8', windowsHide: true }));
   assert(probe.streams.some(s => s.codec_name === 'h264'));
   assert(probe.streams.some(s => s.codec_name === 'aac'));
   result.checks.push('Installed FFmpeg encodes H.264/AAC; FFprobe reads output');
   const sid = 'windows-smoke';
-  fs.writeFileSync(path.join(profile, 'data.json'), JSON.stringify({ settings: { root: mediaDir, watch_updates_enabled: false, watch_sequels_enabled: false }, tasks: [{ id: 'fixture', status: 'completed', savePath: sample, hongguoInfo: { series_id: sid, series_title: 'Windows verification', vid: 'fixture', vid_index: 1 } }], series: [{ series_id: sid, series_title: 'Windows verification', episodes: [{ vid: 'fixture', vid_index: 1, title: 'Synthetic sample' }] }] }));
+  fs.writeFileSync(path.join(profile, 'data.json'), JSON.stringify({ settings: { root: mediaDir, watch_updates_enabled: false, watch_sequels_enabled: false }, tasks: [{ id: 'fixture', status: 'completed', savePath: sample, hongguoInfo: { series_id: sid, series_title: 'Windows verification', vid: 'fixture', vid_index: 1 } }], series: [{ series_id: sid, series_title: 'Windows verification', episodes: [{ vid: 'fixture', vid_index: 1, title: 'CC0 flower footage' }] }] }));
   child = spawn(exe, ['--user-data-dir=' + profile, '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=9439', '--autoplay-policy=no-user-gesture-required'], { stdio: 'ignore' });
   let target;
   for (let i = 0; i < 50; i++) {
@@ -93,16 +99,19 @@ async function evaluate(expression) {
   result.checks.push('Portrait/landscape, always-on-top and integrated episode panel');
   const episodes = await evaluate(`window.electronAPI.getSeriesEpisodes(${JSON.stringify(sid)})`);
   assert(episodes.success && episodes.data.episodes[0].fileUrl);
+  assert.equal((await evaluate(`window.electronAPI.playSeries({seriesId:${JSON.stringify(sid)}, vidIndex:1})`)).success, true);
   const played = await evaluate(`(async () => {
-    const v = document.createElement('video'); v.muted = true; v.controls = true;
-    v.style.cssText = 'position:fixed;bottom:24px;right:24px;width:480px;z-index:9999';
-    v.src = ${JSON.stringify(episodes.data.episodes[0].fileUrl)}; document.body.append(v);
+    let v;
+    for (let i=0; i<50; i++) { v=document.querySelector('video'); if(v?.src) break; await new Promise(r=>setTimeout(r,100)); }
+    if(!v?.src) throw new Error('Player did not load local episode'); v.muted=true;
     await v.play(); await new Promise(r => setTimeout(r, 1200));
     return { time: v.currentTime, width: v.videoWidth, height: v.videoHeight, error: v.error?.message };
   })()`);
   assert(played.time > 0.5 && played.width === 640 && played.height === 360, JSON.stringify(played));
   result.playback = played;
-  result.checks.push('Packaged local-media protocol streams and Chromium plays synthetic H.264/AAC');
+  const paused = await evaluate(`(async () => { document.querySelector('[aria-label="暂停"]').click(); await new Promise(r=>setTimeout(r,100)); return document.querySelector('video').paused; })()`);
+  assert.equal(paused, true);
+  result.checks.push('Actual application player plays CC0 flower H.264/AAC through local protocol; pause control works');
   const screenshot = await cdp('Page.captureScreenshot', { format: 'png' });
   fs.writeFileSync(path.join(out, 'installed-windows-playback.png'), Buffer.from(screenshot.data, 'base64'));
   result.passed = true;
