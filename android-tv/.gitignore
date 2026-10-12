@@ -1,0 +1,8 @@
+build/
+dist/
+.private/
+local.properties
+*.jks
+*.keystore
+*.idsig
+.DS_Store
