@@ -189,6 +189,47 @@ async function fetchSiteHtml(url) {
 }
 
 /**
+ * 只接受公网 http(s) 片源地址。官网 player 页内容不可全信，而这条地址最终会由主进程去请求，
+ * 所以要挡掉内网/本机地址（与 app 片源那条 checkedUrl 白名单同理，只是不能限定死域名，
+ * 因为官网直链的 CDN 域名会变）。
+ */
+function isPublicMediaUrl(value) {
+  let url;
+  try { url = new URL(normalizeVideoUrl(value)); } catch (_) { return false; }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return false;
+  const host = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (!host || host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) return false;
+  if (/^(?:127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(host)) return false;
+  if (/^172\.(?:1[6-9]|2\d|3[01])\./.test(host)) return false;
+  if (host === '::1' || /^(?:fc|fd|fe80)/.test(host)) return false;
+  return true;
+}
+
+/** 官网源真实播放失败过的分集（vid → 时间戳）：窗口内再次取源直接跳过官网，改用稳定的 App 片源。 */
+const webSourceFailures = new Map();
+const WEB_FAILURE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * 供主进程在官网源「真实播放失败」后调用。
+ * 取址阶段不做单次存活判定（该 CDN 的 404 多为抖动，判死会误杀），
+ * 所以真正发现某集的官网地址打不开时，把它记下来，让下一次取源直接换 App 片源 ——
+ * 否则用户反复「重试本集」只会拿回同一条打不开的地址。
+ */
+function markWebSourceFailed(vid) {
+  if (vid) webSourceFailures.set(String(vid), Date.now());
+}
+
+function shouldSkipWebSource(vid) {
+  const at = webSourceFailures.get(String(vid));
+  if (!at) return false;
+  if (Date.now() - at > WEB_FAILURE_TTL_MS) {
+    webSourceFailures.delete(String(vid));
+    return false;
+  }
+  return true;
+}
+
+/**
  * 从官网 player 页内嵌 JSON 取完整分集列表
  * vid_list 按下标即集数顺序（下标 i → 第 i+1 集）
  */
@@ -251,6 +292,12 @@ async function fetchPlayUrlFromWeb(vid, sid) {
 
       const videoUrl = normalizeVideoUrl(m[1]);
       if (!/^https?:\/\//i.test(videoUrl)) continue;
+      // 内网/本机地址不是片源，而且这条地址最终会由主进程去请求，不能替页面访问内网。
+      if (!isPublicMediaUrl(videoUrl)) continue;
+      // 这里不做单次存活判定：该 CDN 对同一地址会间歇返回 404（实测 GET 类请求约 21%，
+      // 同一 URL、同一身份连发三次就出现 200/404 混合），单次探测分不清「永久死链」与
+      // 「抖动」，判死反而会丢掉可用片源（实测 12 次探测误杀 1 次，且最坏会阻塞起播 3~6s）。
+      // 真实的播放失败交给 requestMedia 的一次抖动重试兜底。
       return { url: videoUrl, spadeA: null, codec: '', source: 'web' };
     } catch (e) {
       lastErr = e;
@@ -467,15 +514,18 @@ async function fetchPlayUrlSingle(vid, sid, options = {}) {
   if (String(vid).startsWith('hema:') || String(sid).startsWith('hema:')) return require('./hema').fetchPlayUrlSingle(vid, sid);
   if (String(vid).startsWith('xifan:') || String(sid).startsWith('xifan:')) return require('./xifan').fetchPlayUrlSingle(vid, sid);
   try {
-    return await cachedRequest(`play:${sid || ''}:${vid}`, 30000, () => fetchPlayUrlFresh(vid, sid), options);
+    return await cachedRequest(`play:${sid || ''}:${vid}`, 30000, () => fetchPlayUrlFresh(vid, sid, options), options);
   } catch (error) {
     return { url: null, spadeA: null, codec: null, error: error.message };
   }
 }
 
-async function fetchPlayUrlFresh(vid, sid) {
-  const web = await fetchPlayUrlFromWeb(vid, sid);
-  if (web && web.url) return web;
+async function fetchPlayUrlFresh(vid, sid, options = {}) {
+  // 该分集的官网源真实播放失败过（见 markWebSourceFailed）：跳过官网，直接换 App 片源。
+  if (!options.skipWeb && !shouldSkipWebSource(vid)) {
+    const web = await fetchPlayUrlFromWeb(vid, sid);
+    if (web && web.url) return web;
+  }
 
   try {
     return await require('./app-source').fetchAppPlayUrl(String(vid));
@@ -934,4 +984,9 @@ module.exports = {
   decryptMp4Buffer,
   VIDEO_REFERER,
   UA,
+  // 官网网页层的请求身份：主进程请求官网直链时必须复用，不能改用 App 身份。
+  WEB_REFERER,
+  WEB_UA,
+  // 供主进程在官网源真实播放失败后回传，让下次取源换用 App 片源。
+  markWebSourceFailed,
 };

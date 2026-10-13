@@ -1532,18 +1532,45 @@ function bufferedMediaResponse(request, buffer) {
   return new Response(request.method === 'HEAD' ? null : buffer.subarray(start, end + 1), { status: range ? 206 : 200, headers });
 }
 
+/**
+ * 官网直链（web 源）与 App 片源的请求身份不同且不可互换：
+ * 实测同一个 /video/public/…mp4，浏览器 UA + 站点 Referer 返回 200 完整文件，
+ * 换成 App UA 则稳定 404。下载、在线播放、转码输入共用 requestMedia，
+ * 所以身份必须按片源来源在这里决定；缺常量时退回 App 身份，避免出现空 UA。
+ */
+function mediaIdentity(playInfo) {
+  if (playInfo && playInfo.source === 'web') {
+    return {
+      'User-Agent': hongguo.WEB_UA || hongguo.UA,
+      Referer: hongguo.WEB_REFERER || hongguo.VIDEO_REFERER,
+    };
+  }
+  return { 'User-Agent': hongguo.UA };
+}
+
 /** Same media headers and cancellation apply to download and playback. */
 async function requestMedia(playInfo, options = {}) {
+  // webJitterRetry 是内部标记，不能进入 axios 配置。
+  const { webJitterRetry = false, ...requestOptions } = options;
   const url = new URL(playInfo.url);
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('无效播放地址');
-  const config = { method: 'GET', url: url.href, responseType: 'stream', timeout: 60000, ...options,
-    headers: { 'User-Agent': hongguo.UA, 'Accept-Encoding': 'identity', ...options.headers } };
+  const config = { method: 'GET', url: url.href, responseType: 'stream', timeout: 60000, ...requestOptions,
+    // 身份放在最后展开：调用方的 headers 只能添加自己的键（如 Range），不能覆盖片源身份。
+    headers: { 'Accept-Encoding': 'identity', ...requestOptions.headers, ...mediaIdentity(playInfo) } };
   let response;
   try { response = await axios(config); }
   catch (error) {
     // Drain nothing from rejected bodies: destroy to release the underlying socket.
     error.response?.data?.destroy?.();
-    if (error.response?.status !== 403) throw error;
+    // 官网直链在红果 CDN 上会间歇失败：实测同一 URL、同一浏览器身份连发三次仍出现 200/404 混合，
+    // 也会出现 5xx。官网来源原样重试一次；App 来源不重试，避免把真实失败也拖成两次请求。
+    const status = error.response?.status;
+    const jittery = status === 404 || status === 410 || (status >= 500 && status <= 599);
+    if (jittery && playInfo && playInfo.source === 'web' && !webJitterRetry) {
+      return await requestMedia(playInfo, { ...options, webJitterRetry: true });
+    }
+    // 官网来源首次已带站点 Referer，用同一身份重试没有意义；只有 App 来源才靠补 Referer 兜底。
+    if (error.response?.status !== 403 || (playInfo && playInfo.source === 'web')) throw error;
     try { response = await axios({ ...config, headers: { ...config.headers, Referer: hongguo.VIDEO_REFERER } }); }
     catch (retryError) { retryError.response?.data?.destroy?.(); throw retryError; }
   }
@@ -1606,6 +1633,13 @@ function registerStreamProtocol() {
       return new Response(Readable.toWeb(upstream.data, { strategy: { highWaterMark: 64 * 1024, size: chunk => chunk.byteLength } }), { status: upstream.status, headers });
     } catch (error) {
       cleanup();
+      // 官网源真实播放失败：记下来让下次取源直接换 App 片源。
+      // 取址阶段不做存活判定（该 CDN 的 404 多为抖动，判死会误杀），
+      // 所以「某集的官网地址确实打不开」只能在这里发现；不记的话，用户反复
+      // 「重试本集」会一直拿回同一条打不开的地址（用户取消不算失败，不记）。
+      if (!controller.signal.aborted && session.vid && entry.playInfo && entry.playInfo.source === 'web') {
+        hongguo.markWebSourceFailed(session.vid);
+      }
       return new Response('media unavailable', { status: controller.signal.aborted ? 499 : 502 });
     }
   }));

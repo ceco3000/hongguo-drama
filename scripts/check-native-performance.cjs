@@ -9,12 +9,19 @@ const page = '{"vid_list":["11","12"],"series_name":"测试剧","main_url":"http
 
 function fixture({ web = true, api = false, app = false, blockedVids = [], html = page } = {}) {
   let now = 0;
-  const state = { web, api, app, get: 0, post: 0, appCalls: 0, waits: 0 };
+  // pageGets 只统计取源页面请求；对直链的存活探测走 HEAD，单独计数，便于两类断言分开表达。
+  const state = { web, api, app, get: 0, head: 0, post: 0, appCalls: 0, waits: 0, pageGets: 0 };
   const axios = {
     async get(url) {
       state.get++;
+      if (String(url).includes('/player/')) state.pageGets++;
       if (!state.web || blockedVids.some(vid => url.endsWith(`/${vid}`))) throw new Error('web unavailable');
       return { data: html };
+    },
+    async head(url) {
+      state.head++;
+      if (!state.web || blockedVids.some(vid => url.endsWith(`/${vid}`))) throw new Error('web unavailable');
+      return { status: 200, headers: { 'content-type': 'video/mp4', 'content-length': '4096' }, data: null };
     },
     async post(url, body) {
       state.post++;
@@ -60,7 +67,8 @@ const checks = [
     assert.equal(results[0].source, 'web');
     await native.fetchPlayUrlSingle('11', '1');
     assert.equal(state.post, 0, '有效网页不应等待 API');
-    assert.equal(state.get, 1, '相同播放地址只取一次');
+    assert.equal(state.pageGets, 1, '相同播放地址只取一次');
+    assert.equal(state.head, 0, '取址阶段不得对直链发起探测（该 CDN 抖动使单次判定不可靠）');
   }],
   ['分集 60 秒、播放地址 30 秒到期刷新', async () => {
     const { native, state, advance } = fixture();
@@ -69,13 +77,13 @@ const checks = [
     advance(29999);
     await native.fetchEpisodeList('1');
     await native.fetchPlayUrlSingle('11', '1');
-    assert.equal(state.get, 2, '未到期不重复访问');
+    assert.equal(state.pageGets, 2, '未到期不重复访问');
     advance(2);
     await native.fetchPlayUrlSingle('11', '1');
-    assert.equal(state.get, 3, '播放地址到期后刷新');
+    assert.equal(state.pageGets, 3, '播放地址到期后刷新');
     advance(30000);
     await native.fetchEpisodeList('1');
-    assert.equal(state.get, 4, '分集到期后刷新');
+    assert.equal(state.pageGets, 4, '分集到期后刷新');
   }],
   ['空响应不退避重试，失败不缓存', async () => {
     const { native, state } = fixture({ web: false });
